@@ -1,0 +1,20 @@
+# Seshat Streamlit configuration — locked down for local-only use.
+[server]
+# Bind to loopback only. The app is never reachable from the network.
+address = "127.0.0.1"
+port = 8501
+headless = true
+# Keep CSRF protection on. (Streamlit requires CORS enabled alongside it.)
+enableXsrfProtection = true
+fileWatcherType = "auto"
+maxUploadSize = 50
+
+[browser]
+# No telemetry / usage stats leave the machine.
+gatherUsageStats = false
+serverAddress = "127.0.0.1"
+serverPort = 8501
+
+[theme]
+base = "light"
+primaryColor = "#5B8A72"

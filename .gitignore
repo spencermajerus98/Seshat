@@ -1,0 +1,38 @@
+# ── Seshat: NEVER commit lab data ──────────────────────────────
+# Everything below stays on the local machine only.
+data/
+inbox/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Imported source documents (your protocols / plans)
+*.docx
+*.doc
+*.xlsx
+*.xls
+
+# Streamlit secrets / local config overrides
+.streamlit/secrets.toml
+
+# ── Python ─────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── OS / editor ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Allow test fixtures even though *.docx/*.xlsx are ignored above
+!tests/fixtures/
+!tests/fixtures/**

@@ -1,0 +1,15 @@
+# Seshat — runtime dependencies (all local; no cloud services)
+streamlit>=1.30
+python-docx>=1.1
+openpyxl>=3.1
+pandas>=2.0
+watchdog>=3.0
+cryptography>=42.0
+
+# Encryption-at-rest backend. Provides the `sqlcipher3` module via a
+# prebuilt wheel (no C compiler needed on Windows). If this fails to
+# install, Seshat still runs but WITHOUT database encryption (it will
+# warn loudly). See README "Security" for details.
+sqlcipher3-binary>=0.5; platform_system == "Windows"
+sqlcipher3-binary>=0.5; platform_system == "Linux"
+sqlcipher3-binary>=0.5; platform_system == "Darwin"
