@@ -93,9 +93,35 @@ CREATE TABLE IF NOT EXISTS notebook_entries (
     metadata_json TEXT
 );
 
+CREATE TABLE IF NOT EXISTS experiment_types (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL UNIQUE,
+    fields_json TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS vocab_terms (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL,
+    value    TEXT NOT NULL,
+    UNIQUE(category, value)
+);
+
 CREATE INDEX IF NOT EXISTS idx_entries_created ON notebook_entries(created_at);
 CREATE INDEX IF NOT EXISTS idx_tasks_date ON experiment_tasks(planned_date);
+CREATE INDEX IF NOT EXISTS idx_vocab_category ON vocab_terms(category);
 """
+
+# Columns added to `experiments` after the original MVP schema. Applied
+# idempotently by _run_migrations() so existing notebooks upgrade in place.
+_EXPERIMENT_COLUMNS_V2 = {
+    "type_id": "INTEGER",
+    "start_date": "TEXT",
+    "end_date": "TEXT",
+    "duration_days": "INTEGER",
+    "protocol_id": "INTEGER",
+    "setup_json": "TEXT",
+}
 
 
 def _apply_key(conn: Connection, passphrase: str) -> None:
@@ -123,6 +149,19 @@ def set_meta(conn: Connection, key: str, value: str) -> None:
         "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         (key, value),
     )
+    conn.commit()
+
+
+def _column_names(conn: Connection, table: str) -> set[str]:
+    return {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+
+
+def _run_migrations(conn: Connection) -> None:
+    """Apply additive schema changes to an existing database, idempotently."""
+    existing = _column_names(conn, "experiments")
+    for col, decl in _EXPERIMENT_COLUMNS_V2.items():
+        if col not in existing:
+            conn.execute(f"ALTER TABLE experiments ADD COLUMN {col} {decl}")
     conn.commit()
 
 
@@ -165,8 +204,15 @@ def connect(db_path: str, passphrase: str) -> Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA)
     conn.commit()
+    _run_migrations(conn)
 
     _ensure_verifier(conn, passphrase)
+
+    # Seed default experiment type + controlled-vocabulary terms on first use.
+    # Lazy import avoids a circular dependency (seed -> vocab/exp_types -> db).
+    from . import seed
+
+    seed.seed_defaults(conn)
     return conn
 
 

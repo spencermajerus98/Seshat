@@ -17,10 +17,43 @@ from .db import Connection
 from .models import ParsedProtocol
 from .notebook import now_ts
 
-# ── Word (.docx) ────────────────────────────────────────────────────────────
+# ── Shared text → protocol extraction ───────────────────────────────────────
 _NUMBERED = re.compile(r"^\s*(\d+[.)]|[-*•])\s+")
 
 
+def extract_protocol_from_text(text: str, filename: str) -> ParsedProtocol:
+    """Build a ParsedProtocol from raw text (used for PDF and txt/md).
+
+    Title = first non-empty line; steps = lines that look numbered/bulleted.
+    """
+    lines = [ln.strip() for ln in (text or "").splitlines()]
+    nonempty = [ln for ln in lines if ln]
+    title = nonempty[0] if nonempty else os.path.splitext(os.path.basename(filename))[0]
+    steps = [_NUMBERED.sub("", ln).strip() for ln in nonempty if _NUMBERED.match(ln)]
+    return ParsedProtocol(
+        title=title,
+        body_text="\n".join(nonempty),
+        steps=steps,
+        source_filename=os.path.basename(filename),
+    )
+
+
+def parse_pdf(path: str) -> ParsedProtocol:
+    """Extract text from a PDF protocol (local, offline) via pypdf."""
+    from pypdf import PdfReader
+
+    reader = PdfReader(path)
+    text = "\n".join((page.extract_text() or "") for page in reader.pages)
+    return extract_protocol_from_text(text, path)
+
+
+def parse_text(path: str) -> ParsedProtocol:
+    """Parse a plain-text or Markdown protocol."""
+    with open(path, "r", encoding="utf-8", errors="replace") as fh:
+        return extract_protocol_from_text(fh.read(), path)
+
+
+# ── Word (.docx) ────────────────────────────────────────────────────────────
 def parse_word(path: str) -> ParsedProtocol:
     """Extract title, full body text and step list from a .docx protocol."""
     from docx import Document  # imported lazily so core import stays light

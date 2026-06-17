@@ -23,7 +23,7 @@ def test_summary_groups_and_orders(conn):
 
 def test_summary_empty_date(conn):
     out = summary.build_daily_summary(conn, dt.date(2000, 1, 1))
-    assert "No entries recorded" in out["text"]
+    assert "No log entries recorded" in out["text"]
 
 
 def test_summary_lists_experiments(conn):
@@ -33,3 +33,17 @@ def test_summary_lists_experiments(conn):
     notebook.add_entry(conn, "Started", entry_type="note", experiment_id=xid)
     out = summary.build_daily_summary(conn, dt.date.today())
     assert "Prep A" in out["text"]
+
+
+def test_summary_has_html_and_active_experiments(conn):
+    from core import experiments as expm
+
+    today = dt.date.today()
+    expm.create_experiment(
+        conn, name="Active one", start_date=today.isoformat(), duration_days=3
+    )
+    notebook.add_entry(conn, "did a thing", entry_type="observation")
+    out = summary.build_daily_summary(conn, today)
+    assert "html" in out and "<h1>" in out["html"]
+    assert "Active experiments" in out["html"]
+    assert "Active one" in out["html"]

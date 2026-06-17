@@ -73,5 +73,49 @@ def encryption_badge() -> None:
     else:
         st.sidebar.error(
             "⚠️ Encryption backend not installed — data is **NOT** encrypted "
-            "at rest. Install `sqlcipher3-binary` (see README)."
+            "at rest. Install `sqlcipher3-wheels` (see README)."
         )
+
+
+# ── Favorite folders (for the file browser) ──────────────────────────────────
+def favorites() -> list[str]:
+    return load_config().get("favorite_folders", [])
+
+
+def add_favorite(path: str) -> None:
+    cfg = load_config()
+    favs = cfg.get("favorite_folders", [])
+    if path and path not in favs:
+        favs.append(path)
+        cfg["favorite_folders"] = favs
+        save_config(cfg)
+
+
+def remove_favorite(path: str) -> None:
+    cfg = load_config()
+    favs = [p for p in cfg.get("favorite_folders", []) if p != path]
+    cfg["favorite_folders"] = favs
+    save_config(cfg)
+
+
+# ── Reusable controlled-vocabulary multiselect with inline "add" ─────────────
+def vocab_multiselect(conn, category: str, label: str, *, default=None, key: str):
+    """Render a multiselect backed by a vocab category, with an add-new box.
+
+    Returns the list of currently selected values.
+    """
+    from core import vocab
+
+    options = vocab.list_terms(conn, category)
+    default = [d for d in (default or []) if d in options]
+    selected = st.multiselect(label, options, default=default, key=f"ms_{key}")
+
+    cols = st.columns([0.75, 0.25])
+    new_val = cols[0].text_input(
+        f"Add to {label.lower()}", key=f"add_{key}", label_visibility="collapsed",
+        placeholder=f"Add new {label.lower()}…",
+    )
+    if cols[1].button("➕ Add", key=f"addbtn_{key}") and new_val.strip():
+        vocab.add_term(conn, category, new_val.strip())
+        st.rerun()
+    return selected

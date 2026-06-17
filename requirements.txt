@@ -5,11 +5,12 @@ openpyxl>=3.1
 pandas>=2.0
 watchdog>=3.0
 cryptography>=42.0
+pypdf>=4.0
+altair>=5.0
 
 # Encryption-at-rest backend. Provides the `sqlcipher3` module via a
-# prebuilt wheel (no C compiler needed on Windows). If this fails to
-# install, Seshat still runs but WITHOUT database encryption (it will
-# warn loudly). See README "Security" for details.
-sqlcipher3-binary>=0.5; platform_system == "Windows"
-sqlcipher3-binary>=0.5; platform_system == "Linux"
-sqlcipher3-binary>=0.5; platform_system == "Darwin"
+# prebuilt wheel — no C compiler needed. `sqlcipher3-wheels` ships wheels for
+# Windows, macOS and Linux (unlike `sqlcipher3-binary`, which is Linux-only).
+# If this fails to install, Seshat still runs but WITHOUT database encryption
+# (it warns loudly). See README "Security" for details.
+sqlcipher3-wheels>=0.5.7

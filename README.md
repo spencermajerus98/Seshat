@@ -17,14 +17,22 @@ calls** — your data never leaves your computer.
 
 - **Automatic timestamped notebook** — every action is recorded with the exact date & time.
   You never type a timestamp.
-- **Protocol library** — import your Word `.docx` protocols; they're parsed into title + steps
-  and made searchable.
-- **Experiment plans** — import your Excel `.xlsx` plans; map your columns to task fields and
-  track tasks to completion.
+- **Folder browser** — Seshat reads your own folders: navigate your drives, save favorites, and
+  pull `.docx` / `.pdf` / `.txt`/`.md` protocols and `.xlsx` experiment plans straight into the
+  database (or upload them).
+- **Protocol library** — imported protocols are parsed into title + steps and made searchable.
+- **Modular experiments** — create and edit experiments in-app. Define reusable **experiment
+  types**, each with **customizable setup-condition fields** (vectors, cells, reagents/media as
+  multi-select dropdowns you extend inline; protocol link; planned duration; and any custom
+  fields you add). Track tasks/milestones to completion.
+- **Calendar** — view your schedule as a **Gantt timeline** or a **month grid**; experiment
+  durations are mapped across the dates.
 - **Phone dictation sync** — dictate (Wispr Flow / built-in dictation) or type notes on your
   phone; they sync to the PC via Syncthing and are ingested as timestamped entries.
-- **Daily summary** — one click produces a tidy, dated recap (plain text + Markdown) ready to
-  paste into your enterprise ELN.
+- **Daily summary for Labguru** — one click produces a tidy, dated recap. A **Rich (Labguru)**
+  view lets you select-and-copy formatted text (headings, bullets) straight into Labguru's
+  editor, plus plain-text and Markdown fallbacks. Each experiment also has a **Copy for Labguru**
+  setup report.
 
 ---
 
@@ -76,7 +84,7 @@ relaying) so traffic never leaves your local network.
 
 ## Security model
 
-- **Encrypted at rest.** With the `sqlcipher3-binary` package installed (it's in
+- **Encrypted at rest.** With the `sqlcipher3-wheels` package installed (it's in
   `requirements.txt`), the database is a fully encrypted SQLCipher file. Your passphrase is the
   key; it is held only in memory while the app runs and is **never written to disk**. The unlock
   screen and badge tell you whether encryption is active.
