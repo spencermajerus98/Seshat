@@ -1,12 +1,20 @@
-# Seshat — runtime dependencies (all local; no cloud services)
-streamlit>=1.30
+# Seshat — runtime dependencies (all local; no cloud services).
+# The frontend is a prebuilt static bundle (frontend/dist), so Node.js is NOT
+# required at runtime — only Python.
+
+# Web layer
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9
+pydantic>=2.0
+
+# Document parsing / data
 python-docx>=1.1
 openpyxl>=3.1
 pandas>=2.0
+pypdf>=4.0
 watchdog>=3.0
 cryptography>=42.0
-pypdf>=4.0
-altair>=5.0
 
 # Encryption-at-rest backend. Provides the `sqlcipher3` module via a
 # prebuilt wheel — no C compiler needed. `sqlcipher3-wheels` ships wheels for

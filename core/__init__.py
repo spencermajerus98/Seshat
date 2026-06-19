@@ -1,7 +1,7 @@
 """Seshat core package — local, offline lab-notebook engine.
 
-Pure-Python modules with no network access. The Streamlit UI layer
-(``app.py`` and ``pages/``) builds on top of these.
+Pure-Python modules with no network access. The HTTP layer (``server/``,
+FastAPI) and the React frontend build on top of these.
 """
 
 __all__ = [

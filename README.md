@@ -51,8 +51,11 @@ python -m venv .venv
 .venv\Scripts\activate        # Windows
 # source .venv/bin/activate   # macOS/Linux
 pip install -r requirements.txt
-streamlit run app.py
+python -m uvicorn server.main:app --host 127.0.0.1 --port 8501
 ```
+
+The web UI is a **prebuilt static bundle** (`frontend/dist`), served by the Python
+backend — so **Node.js is not required to run Seshat**, only Python 3.11+.
 
 ---
 
@@ -88,8 +91,11 @@ relaying) so traffic never leaves your local network.
   `requirements.txt`), the database is a fully encrypted SQLCipher file. Your passphrase is the
   key; it is held only in memory while the app runs and is **never written to disk**. The unlock
   screen and badge tell you whether encryption is active.
-- **Local only.** Streamlit is bound to `127.0.0.1`, telemetry is disabled, and the code makes
-  no outbound network calls.
+- **Local only.** The server binds to `127.0.0.1`, the interactive API docs are disabled, and the
+  code makes no outbound network calls. The decrypted connection is held in server memory keyed by
+  an httponly, same-site session cookie; locking (or one hour idle) closes it.
+- **Bundled, offline frontend.** All JavaScript/CSS is bundled at build time — no CDNs, fonts, or
+  analytics are fetched at runtime.
 - **Nothing sensitive in git.** `.gitignore` excludes the database, the inbox, and imported
   `.docx`/`.xlsx` files. Only the application code is tracked.
 
@@ -108,21 +114,36 @@ relaying) so traffic never leaves your local network.
 
 ---
 
-## Project layout
+## Architecture
+
+Seshat is a single localhost process: a **FastAPI** backend serves a JSON API under `/api` and the
+prebuilt **React (Vite + TypeScript + Mantine)** single-page app from `frontend/dist`.
 
 ```
-app.py            Unlock gate + home; auto-scans the phone inbox
-ui_common.py      Shared Streamlit helpers (state, paths, connection)
-pages/            Dashboard, Notebook, Protocols, Experiments, Daily Summary, Import, Sync, Settings
-core/             db, crypto, importers, sync, summary, notebook, models  (pure Python, testable)
-tests/            pytest suite
-.streamlit/       localhost-only, telemetry-off config
+core/             db, crypto, importers, sync, summary, notebook, experiments, exp_types,
+                  vocab, files, models  (pure Python, UI-agnostic, fully unit-tested)
+server/           FastAPI app + routers; thin wrappers over core/. Holds the decrypted
+                  connection in memory keyed by a session cookie. (main.py serves the SPA.)
+frontend/         React/Vite source (src/) and the committed prebuilt bundle (dist/)
+tests/            pytest suite — core/ logic + FastAPI API tests
+run_seshat.bat    Windows launcher (venv + deps + uvicorn)
 ```
+
+### Building the frontend (only needed if you change `frontend/src`)
+
+```bash
+cd frontend
+npm install
+npm run build        # emits frontend/dist, which the backend serves
+```
+
+For frontend development with hot reload, run the backend (`uvicorn … --port 8501`) and, in
+another terminal, `npm run dev` (Vite proxies `/api` to the backend).
 
 ## Running the tests
 
 ```bash
-pip install pytest python-docx openpyxl pandas
+pip install -r requirements.txt pytest
 pytest -q
 ```
 

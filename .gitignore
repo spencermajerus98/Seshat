@@ -13,8 +13,12 @@ inbox/
 *.xlsx
 *.xls
 
-# Streamlit secrets / local config overrides
-.streamlit/secrets.toml
+# ── Frontend ───────────────────────────────────────────────────
+# node_modules is only needed to *build* the bundle. The built output
+# (frontend/dist) IS committed/shipped so the app runs with Python alone.
+frontend/node_modules/
+frontend/.vite/
+*.tsbuildinfo
 
 # ── Python ─────────────────────────────────────────────────────
 __pycache__/
