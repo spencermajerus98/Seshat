@@ -153,7 +153,13 @@ function BrowseTab({
 }
 
 // ── Tasks editor (within Create/Edit) ────────────────────────────────────────
-function TasksEditor({ experimentId }: { experimentId: number }) {
+function TasksEditor({
+  experimentId,
+  protocolSteps,
+}: {
+  experimentId: number;
+  protocolSteps?: { step_no: number; text: string }[];
+}) {
   const qc = useQueryClient();
   const { data: tasks } = useQuery<Task[]>({
     queryKey: ["tasks", experimentId],
@@ -189,10 +195,37 @@ function TasksEditor({ experimentId }: { experimentId: number }) {
     },
     onError: notifyErr,
   });
+  const importSteps = useMutation({
+    mutationFn: async () => {
+      for (const s of protocolSteps ?? []) {
+        await api.post(`/experiments/${experimentId}/tasks`, {
+          task_name: `${s.step_no}. ${s.text}`,
+          planned_date: null,
+        });
+      }
+    },
+    onSuccess: () => {
+      invalidate();
+      notifyOk(`Imported ${protocolSteps?.length ?? 0} protocol steps as tasks.`);
+    },
+    onError: notifyErr,
+  });
 
   return (
     <Stack gap="xs">
-      <Text fw={600}>Tasks / milestones</Text>
+      <Group justify="space-between">
+        <Text fw={600}>Tasks / milestones</Text>
+        {protocolSteps && protocolSteps.length > 0 && (
+          <Button
+            size="xs"
+            variant="light"
+            loading={importSteps.isPending}
+            onClick={() => importSteps.mutate()}
+          >
+            📋 Import {protocolSteps.length} protocol steps as tasks
+          </Button>
+        )}
+      </Group>
       {(tasks ?? []).map((t) => (
         <Group key={t.id} justify="space-between" wrap="nowrap">
           <Text size="sm" td={t.status === "done" ? "line-through" : undefined}>
@@ -389,7 +422,14 @@ function EditForm({
           {experiment && (
             <>
               <Divider />
-              <TasksEditor experimentId={experiment.id} />
+              <TasksEditor
+                experimentId={experiment.id}
+                protocolSteps={(() => {
+                  const protoField = fields.find((f) => f.kind === "protocol");
+                  const protocolId = protoField ? (setup[protoField.key] as number | undefined) : undefined;
+                  return protocols.find((p) => p.id === protocolId)?.steps;
+                })()}
+              />
             </>
           )}
         </>

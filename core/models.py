@@ -41,3 +41,5 @@ class ParsedProtocol:
     steps: list[str] = field(default_factory=list)
     source_filename: Optional[str] = None
     version: Optional[str] = None
+    file_data: Optional[bytes] = None
+    file_mime: Optional[str] = None

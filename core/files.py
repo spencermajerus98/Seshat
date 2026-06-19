@@ -87,6 +87,15 @@ def list_dir(path: str) -> dict:
     return {"path": path, "parent": parent, "dirs": dirs, "files": files}
 
 
+_MIME_BY_EXT = {
+    ".pdf": "application/pdf",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".txt": "text/plain",
+    ".md": "text/plain",
+    ".markdown": "text/plain",
+}
+
+
 def import_protocol_file(
     conn: Connection, path: str, *, tags: Optional[str] = None
 ) -> int:
@@ -101,4 +110,7 @@ def import_protocol_file(
     else:
         raise ValueError(f"Unsupported protocol file type: {ext}")
     parsed.source_filename = os.path.basename(path)
+    with open(path, "rb") as fh:
+        parsed.file_data = fh.read()
+    parsed.file_mime = _MIME_BY_EXT.get(ext, "application/octet-stream")
     return importers.import_protocol(conn, parsed, tags=tags)

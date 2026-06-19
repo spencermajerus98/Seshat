@@ -138,6 +138,10 @@ def protocol_commit(
     parsed.source_filename = os.path.basename(body.path)
     parsed.title = body.title or parsed.title
     parsed.version = body.version or None
+    ext = os.path.splitext(body.path)[1].lower()
+    with open(body.path, "rb") as fh:
+        parsed.file_data = fh.read()
+    parsed.file_mime = files._MIME_BY_EXT.get(ext, "application/octet-stream")
     with db_lock(sess) as conn:
         pid = importers.import_protocol(conn, parsed, tags=body.tags or None)
     return {"id": pid, "title": parsed.title}

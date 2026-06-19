@@ -89,10 +89,20 @@ def import_protocol(
     """Persist a parsed protocol and its steps; returns the protocol id."""
     cur = conn.execute(
         """
-        INSERT INTO protocols (title, source_filename, version, imported_at, body_text, tags)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO protocols (title, source_filename, version, imported_at, body_text, tags,
+                               file_data, file_mime)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (parsed.title, parsed.source_filename, parsed.version, now_ts(), parsed.body_text, tags),
+        (
+            parsed.title,
+            parsed.source_filename,
+            parsed.version,
+            now_ts(),
+            parsed.body_text,
+            tags,
+            parsed.file_data,
+            parsed.file_mime,
+        ),
     )
     protocol_id = int(cur.lastrowid)
     for i, step in enumerate(parsed.steps, start=1):

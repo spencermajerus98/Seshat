@@ -123,6 +123,12 @@ _EXPERIMENT_COLUMNS_V2 = {
     "setup_json": "TEXT",
 }
 
+# Columns added to `protocols` to store the original file bytes for the viewer.
+_PROTOCOL_COLUMNS_V2 = {
+    "file_data": "BLOB",
+    "file_mime": "TEXT",
+}
+
 
 def _apply_key(conn: Connection, passphrase: str) -> None:
     """Set the SQLCipher key on a freshly opened encrypted connection."""
@@ -158,10 +164,16 @@ def _column_names(conn: Connection, table: str) -> set[str]:
 
 def _run_migrations(conn: Connection) -> None:
     """Apply additive schema changes to an existing database, idempotently."""
-    existing = _column_names(conn, "experiments")
+    existing_exp = _column_names(conn, "experiments")
     for col, decl in _EXPERIMENT_COLUMNS_V2.items():
-        if col not in existing:
+        if col not in existing_exp:
             conn.execute(f"ALTER TABLE experiments ADD COLUMN {col} {decl}")
+
+    existing_proto = _column_names(conn, "protocols")
+    for col, decl in _PROTOCOL_COLUMNS_V2.items():
+        if col not in existing_proto:
+            conn.execute(f"ALTER TABLE protocols ADD COLUMN {col} {decl}")
+
     conn.commit()
 
 

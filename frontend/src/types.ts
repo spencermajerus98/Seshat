@@ -90,6 +90,7 @@ export interface Protocol {
   imported_at: string;
   body_text: string | null;
   tags: string | null;
+  has_file: boolean;
   steps: { step_no: number; text: string }[];
 }
 
