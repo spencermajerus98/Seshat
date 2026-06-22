@@ -54,23 +54,47 @@ def parse_text(path: str) -> ParsedProtocol:
 
 
 # ── Word (.docx) ────────────────────────────────────────────────────────────
+def _iter_docx_paragraphs(parent):
+    """Yield every paragraph in a .docx document/cell in reading order.
+
+    ``doc.paragraphs`` skips anything inside tables, which is where many
+    protocols keep their body and numbered steps. Walking the inner content
+    (paragraphs *and* tables, recursively) keeps the full document.
+    """
+    from docx.table import Table
+
+    blocks = (
+        parent.iter_inner_content()
+        if hasattr(parent, "iter_inner_content")
+        else parent.paragraphs
+    )
+    for block in blocks:
+        if isinstance(block, Table):
+            for row in block.rows:
+                for cell in row.cells:
+                    yield from _iter_docx_paragraphs(cell)
+        else:
+            yield block
+
+
 def parse_word(path: str) -> ParsedProtocol:
     """Extract title, full body text and step list from a .docx protocol."""
     from docx import Document  # imported lazily so core import stays light
 
     doc = Document(path)
-    paras = [p.text.strip() for p in doc.paragraphs if p.text and p.text.strip()]
 
-    title = paras[0] if paras else os.path.splitext(os.path.basename(path))[0]
-
+    paras: list[str] = []
     steps: list[str] = []
-    for p in doc.paragraphs:
+    for p in _iter_docx_paragraphs(doc):
         text = (p.text or "").strip()
         if not text:
             continue
+        paras.append(text)
         style = (p.style.name or "").lower() if p.style else ""
         if "list" in style or _NUMBERED.match(text):
             steps.append(_NUMBERED.sub("", text).strip())
+
+    title = paras[0] if paras else os.path.splitext(os.path.basename(path))[0]
 
     return ParsedProtocol(
         title=title,

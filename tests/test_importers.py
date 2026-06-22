@@ -36,6 +36,24 @@ def test_import_protocol_persists_steps(conn, tmp_path):
     assert steps == 3
 
 
+def test_parse_word_includes_table_content(tmp_path):
+    """Body text and steps inside tables must not be dropped (the partial-doc bug)."""
+    p = tmp_path / "tabled.docx"
+    doc = Document()
+    doc.add_paragraph("Tabled Protocol")
+    table = doc.add_table(rows=2, cols=2)
+    table.cell(0, 0).text = "Step"
+    table.cell(0, 1).text = "Amount"
+    table.cell(1, 0).text = "1. Add buffer to tube"
+    table.cell(1, 1).text = "10 mL"
+    doc.save(str(p))
+
+    parsed = importers.parse_word(str(p))
+    assert "Add buffer to tube" in parsed.body_text
+    assert "10 mL" in parsed.body_text
+    assert "Add buffer to tube" in parsed.steps  # numbered prefix stripped
+
+
 def test_parse_and_import_excel(conn, tmp_path):
     p = tmp_path / "plan.xlsx"
     pd.DataFrame(

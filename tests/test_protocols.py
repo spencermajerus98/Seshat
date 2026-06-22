@@ -112,6 +112,60 @@ def test_serve_docx_as_html(client, tmp_path):
     assert "<li>Thaw cells</li>" in r.text
 
 
+def test_docx_viewer_renders_table_rows(client, tmp_path):
+    """The DOCX viewer must include table content, not just loose paragraphs."""
+    p = tmp_path / "withtable.docx"
+    doc = Document()
+    doc.add_paragraph("Tabled Protocol")
+    table = doc.add_table(rows=1, cols=2)
+    table.cell(0, 0).text = "Spin at 1000g"
+    table.cell(0, 1).text = "5 minutes"
+    doc.save(str(p))
+    with open(p, "rb") as fh:
+        up = client.post(
+            "/api/files/upload",
+            files={"file": ("withtable.docx", fh, "application/octet-stream")},
+        )
+    pid = client.post(
+        "/api/files/protocol/commit",
+        json={"path": up.json()["path"], "title": "Tabled"},
+    ).json()["id"]
+
+    r = client.get(f"/api/protocols/{pid}/file")
+    assert r.status_code == 200
+    assert "<table>" in r.text
+    assert "Spin at 1000g" in r.text
+    assert "5 minutes" in r.text
+
+
+def test_update_steps_replaces_all(client, tmp_path):
+    p = tmp_path / "edit.docx"
+    _make_docx(str(p))
+    with open(p, "rb") as fh:
+        up = client.post(
+            "/api/files/upload",
+            files={"file": ("edit.docx", fh, "application/octet-stream")},
+        )
+    pid = client.post(
+        "/api/files/protocol/commit", json={"path": up.json()["path"], "title": "Editable"}
+    ).json()["id"]
+
+    # Replace with an edited/reordered/added set; blanks are dropped.
+    r = client.put(
+        f"/api/protocols/{pid}/steps",
+        json={"steps": ["First step", "  ", "Second step", "Third step"]},
+    )
+    assert r.status_code == 200
+    assert r.json()["count"] == 3
+
+    target = next(x for x in client.get("/api/protocols").json() if x["id"] == pid)
+    assert [s["text"] for s in target["steps"]] == ["First step", "Second step", "Third step"]
+    assert [s["step_no"] for s in target["steps"]] == [1, 2, 3]
+
+    # Unknown protocol → 404.
+    assert client.put("/api/protocols/999999/steps", json={"steps": ["x"]}).status_code == 404
+
+
 def test_file_404_when_no_bytes(conn, client):
     # A protocol imported without file bytes (legacy) returns 404 on /file.
     from core import importers
