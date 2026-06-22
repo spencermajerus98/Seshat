@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Accordion,
@@ -142,6 +142,59 @@ function StepsEditor({ p }: { p: Protocol }) {
   );
 }
 
+// ── Word document viewer — renders the real .docx in the browser ──────────────
+// docx-preview is loaded lazily (dynamic import) so it only ships when a user
+// actually opens a Word document, keeping it out of the main bundle.
+function DocxViewer({ id }: { id: number }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    setStatus("loading");
+    (async () => {
+      try {
+        const res = await fetch(`/api/protocols/${id}/file`, { credentials: "same-origin" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const buf = await res.arrayBuffer();
+        const { renderAsync } = await import("docx-preview");
+        if (cancelled || !containerRef.current) return;
+        containerRef.current.innerHTML = "";
+        await renderAsync(new Uint8Array(buf), containerRef.current, undefined, {
+          className: "docx",
+          inWrapper: true,
+          breakPages: true,
+          ignoreLastRenderedPageBreak: true,
+          experimental: true,
+          useBase64URL: true,
+        });
+        if (!cancelled) setStatus("ready");
+      } catch {
+        if (!cancelled) setStatus("error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  return (
+    <div style={{ height: "80vh", overflow: "auto", background: "#f3f3f3" }}>
+      {status === "loading" && (
+        <Text p="md" size="sm" c="dimmed">
+          Rendering document…
+        </Text>
+      )}
+      {status === "error" && (
+        <Text p="md" size="sm" c="red">
+          Could not render this document. Use “Full text” to read the extracted text.
+        </Text>
+      )}
+      <div ref={containerRef} />
+    </div>
+  );
+}
+
 function ProtocolBody({ p }: { p: Protocol }) {
   const qc = useQueryClient();
   const [showFull, { toggle: toggleFull }] = useDisclosure(false);
@@ -231,11 +284,16 @@ function ProtocolBody({ p }: { p: Protocol }) {
         size="90%"
         styles={{ body: { padding: 0 } }}
       >
-        <iframe
-          src={`/api/protocols/${p.id}/file`}
-          title={p.title}
-          style={{ width: "100%", height: "80vh", border: "none", display: "block" }}
-        />
+        {viewerOpen &&
+          (p.source_filename?.toLowerCase().endsWith(".docx") ? (
+            <DocxViewer id={p.id} />
+          ) : (
+            <iframe
+              src={`/api/protocols/${p.id}/file`}
+              title={p.title}
+              style={{ width: "100%", height: "80vh", border: "none", display: "block" }}
+            />
+          ))}
       </Modal>
     </Stack>
   );

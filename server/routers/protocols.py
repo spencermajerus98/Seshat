@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import html as _html
-import io
-import re
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from .. import security
@@ -21,107 +18,6 @@ _LIST_COLS = (
     "id, title, source_filename, version, imported_at, body_text, tags, file_mime, "
     "(file_data IS NOT NULL) AS has_file"
 )
-
-_NUMBERED = re.compile(r"^\s*\d+[.)]\s+")
-_BULLETED = re.compile(r"^\s*[-*•]\s+")
-
-
-def _docx_to_html(data: bytes) -> str:
-    """Convert a DOCX file (as bytes) to a simple HTML document for in-browser display.
-
-    Walks the document in reading order, rendering both paragraphs and tables.
-    ``doc.paragraphs`` alone skips table content — the cause of protocols that
-    rendered only partially in the viewer.
-    """
-    from docx import Document  # lazy import
-    from docx.table import Table
-
-    doc = Document(io.BytesIO(data))
-    parts = [
-        "<!DOCTYPE html><html><head><meta charset='utf-8'>",
-        "<style>body{font-family:sans-serif;max-width:860px;margin:0 auto;"
-        "padding:1.5rem;line-height:1.6;color:#333}"
-        "h1,h2,h3{margin-top:1.2em}p{margin:.4em 0}"
-        "ul,ol{margin:.4em 0;padding-left:1.5em}"
-        "table{border-collapse:collapse;width:100%;margin:1em 0}"
-        "td,th{border:1px solid #ccc;padding:.4em .6em;vertical-align:top;text-align:left}"
-        "</style>",
-        "</head><body>",
-    ]
-
-    # Mutable list state shared across paragraph rendering.
-    state = {"in_list": False, "list_tag": "ul"}
-
-    def close_list() -> None:
-        if state["in_list"]:
-            parts.append(f"</{state['list_tag']}>")
-            state["in_list"] = False
-
-    def render_paragraph(p) -> None:
-        text = p.text.strip()
-        if not text:
-            close_list()
-            return
-        style_name = (p.style.name or "").lower() if p.style else ""
-        is_numbered = bool(_NUMBERED.match(text))
-        is_bullet = bool(_BULLETED.match(text))
-        is_list = is_numbered or is_bullet or "list" in style_name
-        e = _html.escape(text)
-
-        if "heading 1" in style_name:
-            close_list()
-            parts.append(f"<h1>{e}</h1>")
-        elif "heading 2" in style_name:
-            close_list()
-            parts.append(f"<h2>{e}</h2>")
-        elif "heading 3" in style_name or "heading 4" in style_name:
-            close_list()
-            parts.append(f"<h3>{e}</h3>")
-        elif is_list:
-            new_tag = "ol" if is_numbered else "ul"
-            if not state["in_list"]:
-                state["list_tag"] = new_tag
-                parts.append(f"<{new_tag}>")
-                state["in_list"] = True
-            elif new_tag != state["list_tag"]:
-                parts.append(f"</{state['list_tag']}>")
-                state["list_tag"] = new_tag
-                parts.append(f"<{new_tag}>")
-            item = _NUMBERED.sub("", _BULLETED.sub("", text)).strip()
-            parts.append(f"<li>{_html.escape(item)}</li>")
-        else:
-            close_list()
-            parts.append(f"<p>{e}</p>")
-
-    def render_table(tbl) -> None:
-        close_list()
-        parts.append("<table>")
-        for row in tbl.rows:
-            parts.append("<tr>")
-            for cell in row.cells:
-                cell_html = "<br>".join(
-                    _html.escape(cp.text.strip())
-                    for cp in cell.paragraphs
-                    if cp.text and cp.text.strip()
-                )
-                parts.append(f"<td>{cell_html}</td>")
-            parts.append("</tr>")
-        parts.append("</table>")
-
-    blocks = (
-        doc.iter_inner_content()
-        if hasattr(doc, "iter_inner_content")
-        else doc.paragraphs
-    )
-    for block in blocks:
-        if isinstance(block, Table):
-            render_table(block)
-        else:
-            render_paragraph(block)
-
-    close_list()
-    parts.append("</body></html>")
-    return "\n".join(parts)
 
 
 @router.get("")
@@ -212,11 +108,10 @@ def update_steps(
 def get_protocol_file(
     protocol_id: int, sess: security.Session = Depends(current_session)
 ):
-    """Return the original file stored at import time.
+    """Return the original file bytes stored at import time.
 
-    PDFs are returned as-is (browser renders them inline in an iframe).
-    DOCX files are converted to HTML on the fly.
-    Plain-text files are returned as text/plain.
+    Served as-is with the stored MIME type. The frontend chooses how to render:
+    PDFs/plain text go in an iframe; DOCX is rendered client-side by docx-preview.
     """
     with db_lock(sess) as conn:
         row = conn.execute(
@@ -229,10 +124,6 @@ def get_protocol_file(
 
     data: bytes = bytes(row["file_data"])
     mime: str = row["file_mime"] or "application/octet-stream"
-
-    if "wordprocessingml" in mime:
-        return HTMLResponse(content=_docx_to_html(data))
-
     return Response(content=data, media_type=mime)
 
 

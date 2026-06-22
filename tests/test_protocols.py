@@ -92,7 +92,9 @@ def test_rename_and_list_via_api(client, tmp_path):
     assert client.put(f"/api/protocols/{pid}", json={"title": "  "}).status_code == 400
 
 
-def test_serve_docx_as_html(client, tmp_path):
+def test_serve_docx_raw_bytes(client, tmp_path):
+    """The viewer endpoint serves the original .docx bytes; the browser (docx-preview)
+    renders it client-side, so no server-side HTML conversion happens anymore."""
     p = tmp_path / "viewme.docx"
     _make_docx(str(p))
     with open(p, "rb") as fh:
@@ -107,35 +109,8 @@ def test_serve_docx_as_html(client, tmp_path):
 
     r = client.get(f"/api/protocols/{pid}/file")
     assert r.status_code == 200
-    assert "text/html" in r.headers["content-type"]
-    assert "Lentiviral Transduction Protocol" in r.text
-    assert "<li>Thaw cells</li>" in r.text
-
-
-def test_docx_viewer_renders_table_rows(client, tmp_path):
-    """The DOCX viewer must include table content, not just loose paragraphs."""
-    p = tmp_path / "withtable.docx"
-    doc = Document()
-    doc.add_paragraph("Tabled Protocol")
-    table = doc.add_table(rows=1, cols=2)
-    table.cell(0, 0).text = "Spin at 1000g"
-    table.cell(0, 1).text = "5 minutes"
-    doc.save(str(p))
-    with open(p, "rb") as fh:
-        up = client.post(
-            "/api/files/upload",
-            files={"file": ("withtable.docx", fh, "application/octet-stream")},
-        )
-    pid = client.post(
-        "/api/files/protocol/commit",
-        json={"path": up.json()["path"], "title": "Tabled"},
-    ).json()["id"]
-
-    r = client.get(f"/api/protocols/{pid}/file")
-    assert r.status_code == 200
-    assert "<table>" in r.text
-    assert "Spin at 1000g" in r.text
-    assert "5 minutes" in r.text
+    assert "wordprocessingml" in r.headers["content-type"]
+    assert r.content.startswith(b"PK")  # .docx is a zip archive
 
 
 def test_update_steps_replaces_all(client, tmp_path):
