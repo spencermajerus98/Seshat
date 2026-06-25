@@ -13,6 +13,7 @@ import {
 } from "@mantine/core";
 import { api } from "../api";
 import { notifyErr, notifyOk } from "../lib";
+import { ColorSchemeControl } from "../components/ColorSchemeToggle";
 
 interface SettingsData {
   db_path: string;
@@ -80,6 +81,16 @@ export function Settings() {
   return (
     <Stack>
       <Title order={2}>⚙️ Settings</Title>
+
+      <Card withBorder radius="md">
+        <Title order={4}>Appearance</Title>
+        <Text size="sm" c="dimmed" mt={4}>
+          Choose a theme. “Auto” follows your operating system’s light/dark setting.
+        </Text>
+        <Group mt="sm">
+          <ColorSchemeControl />
+        </Group>
+      </Card>
 
       <Card withBorder radius="md">
         <Title order={4}>Folders</Title>

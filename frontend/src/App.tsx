@@ -12,6 +12,7 @@ import {
   Title,
 } from "@mantine/core";
 import { useAuth } from "./auth";
+import { ColorSchemeToggle } from "./components/ColorSchemeToggle";
 import { Unlock } from "./pages/Unlock";
 import { Dashboard } from "./pages/Dashboard";
 import { Notebook } from "./pages/Notebook";
@@ -71,6 +72,7 @@ export function App() {
                 ⚠️ Not encrypted
               </Badge>
             )}
+            <ColorSchemeToggle />
             <Button size="xs" variant="default" onClick={() => lock()}>
               🔒 Lock
             </Button>

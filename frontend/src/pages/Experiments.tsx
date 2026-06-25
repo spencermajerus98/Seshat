@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ActionIcon,
@@ -8,6 +8,7 @@ import {
   Card,
   Divider,
   Group,
+  SegmentedControl,
   Select,
   Stack,
   Table,
@@ -23,7 +24,7 @@ import { api } from "../api";
 import { useAuth } from "../auth";
 import { computeEndDate, copyRich, copyText, notifyErr, notifyOk } from "../lib";
 import { FieldInput } from "../components/SetupFields";
-import { Gantt, MonthGrid } from "../components/Calendar";
+import { Gantt, MonthCalendar } from "../components/Calendar";
 import type { Experiment, ExpType, FieldDef, Protocol, Report, Task } from "../types";
 
 const NEW_TYPE = "__new__";
@@ -680,9 +681,46 @@ function TypesListsTab({ types }: { types: ExpType[] }) {
   );
 }
 
+// ── Calendar tab ─────────────────────────────────────────────────────────────
+function CalendarTab({
+  experiments,
+  onSelectExperiment,
+}: {
+  experiments: Experiment[];
+  onSelectExperiment: (id: number) => void;
+}) {
+  const [view, setView] = useState("month");
+  const scheduled = experiments.filter((e) => e.start_date);
+
+  return (
+    <Stack>
+      <Group justify="space-between">
+        <SegmentedControl
+          value={view}
+          onChange={setView}
+          data={[
+            { label: "🗓 Month", value: "month" },
+            { label: "📊 Timeline", value: "timeline" },
+          ]}
+        />
+        {scheduled.length === 0 && (
+          <Text c="dimmed" size="sm">
+            No scheduled experiments yet — add a start date in Create / Edit.
+          </Text>
+        )}
+      </Group>
+      {view === "month" ? (
+        <MonthCalendar experiments={experiments} onSelectExperiment={onSelectExperiment} />
+      ) : scheduled.length > 0 ? (
+        <Gantt experiments={scheduled} />
+      ) : null}
+    </Stack>
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 export function Experiments() {
-  const [tab, setTab] = useState<string | null>("browse");
+  const [tab, setTab] = useState<string | null>("calendar");
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const { data: experiments } = useQuery<Experiment[]>({
@@ -700,21 +738,20 @@ export function Experiments() {
     setTab("edit");
   };
 
-  const scheduled = useMemo(
-    () => (experiments ?? []).filter((e) => e.start_date),
-    [experiments],
-  );
-
   return (
     <Stack>
       <Title order={2}>🧬 Experiments</Title>
       <Tabs value={tab} onChange={setTab}>
         <Tabs.List>
+          <Tabs.Tab value="calendar">🗓 Calendar</Tabs.Tab>
           <Tabs.Tab value="browse">📚 Browse</Tabs.Tab>
           <Tabs.Tab value="edit">➕ Create / Edit</Tabs.Tab>
-          <Tabs.Tab value="calendar">🗓 Calendar</Tabs.Tab>
           <Tabs.Tab value="lists">⚙️ Types & Lists</Tabs.Tab>
         </Tabs.List>
+
+        <Tabs.Panel value="calendar" pt="md">
+          <CalendarTab experiments={experiments ?? []} onSelectExperiment={onEdit} />
+        </Tabs.Panel>
 
         <Tabs.Panel value="browse" pt="md">
           <BrowseTab experiments={experiments ?? []} onEdit={onEdit} />
@@ -729,28 +766,6 @@ export function Experiments() {
               selectedId={selectedId}
               setSelectedId={setSelectedId}
             />
-          )}
-        </Tabs.Panel>
-
-        <Tabs.Panel value="calendar" pt="md">
-          {scheduled.length === 0 ? (
-            <Text c="dimmed" size="sm">
-              No scheduled experiments yet. Add a start date and duration in Create
-              / Edit.
-            </Text>
-          ) : (
-            <Tabs defaultValue="gantt">
-              <Tabs.List>
-                <Tabs.Tab value="gantt">Timeline (Gantt)</Tabs.Tab>
-                <Tabs.Tab value="month">Month grid</Tabs.Tab>
-              </Tabs.List>
-              <Tabs.Panel value="gantt" pt="md">
-                <Gantt experiments={scheduled} />
-              </Tabs.Panel>
-              <Tabs.Panel value="month" pt="md">
-                <MonthGrid experiments={scheduled} />
-              </Tabs.Panel>
-            </Tabs>
           )}
         </Tabs.Panel>
 
