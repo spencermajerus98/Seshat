@@ -123,10 +123,12 @@ _EXPERIMENT_COLUMNS_V2 = {
     "setup_json": "TEXT",
 }
 
-# Columns added to `protocols` to store the original file bytes for the viewer.
+# Columns added to `protocols` to store the original file bytes for the viewer,
+# plus a cached PDF rendering of DOCX files (converted on first view).
 _PROTOCOL_COLUMNS_V2 = {
     "file_data": "BLOB",
     "file_mime": "TEXT",
+    "pdf_render": "BLOB",
 }
 
 

@@ -16,6 +16,11 @@ pypdf>=4.0
 watchdog>=3.0
 cryptography>=42.0
 
+# Optional: high-fidelity DOCX→PDF protocol viewing on Windows via Word COM
+# automation. If absent (or on non-Windows without LibreOffice), the viewer
+# falls back to the client-side docx-preview renderer. See core/docx_pdf.py.
+pywin32>=306; sys_platform == "win32"
+
 # Encryption-at-rest backend. Provides the `sqlcipher3` module via a
 # prebuilt wheel — no C compiler needed. `sqlcipher3-wheels` ships wheels for
 # Windows, macOS and Linux (unlike `sqlcipher3-binary`, which is Linux-only).

@@ -8,6 +8,7 @@ import {
   Code,
   Collapse,
   Group,
+  Loader,
   Modal,
   Stack,
   Text,
@@ -142,10 +143,13 @@ function StepsEditor({ p }: { p: Protocol }) {
   );
 }
 
-// ── Word document viewer — renders the real .docx in the browser ──────────────
-// docx-preview is loaded lazily (dynamic import) so it only ships when a user
-// actually opens a Word document, keeping it out of the main bundle.
-function DocxViewer({ id }: { id: number }) {
+// ── Word document viewer ──────────────────────────────────────────────────────
+// Two-tier rendering for best fidelity:
+//   1. High-fidelity PDF — the backend converts the .docx with a real layout
+//      engine (Word/LibreOffice) and we show it in the browser's PDF viewer.
+//   2. Fallback — if no converter is available, render client-side with
+//      docx-preview (lazily imported so it stays out of the main bundle).
+function DocxNativeViewer({ id }: { id: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
@@ -193,6 +197,68 @@ function DocxViewer({ id }: { id: number }) {
       <div ref={containerRef} />
     </div>
   );
+}
+
+function DocxViewer({ id }: { id: number }) {
+  const [phase, setPhase] = useState<"converting" | "pdf" | "native">("converting");
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [forceNative, setForceNative] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let url: string | null = null;
+    setPhase("converting");
+    (async () => {
+      try {
+        const res = await fetch(`/api/protocols/${id}/file.pdf`, {
+          credentials: "same-origin",
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        if (cancelled) return;
+        url = URL.createObjectURL(blob);
+        setPdfUrl(url);
+        setPhase("pdf");
+      } catch {
+        // No converter / conversion failed → fall back to the in-browser renderer.
+        if (!cancelled) setPhase("native");
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [id]);
+
+  if (!forceNative && phase === "converting") {
+    return (
+      <Group justify="center" p="xl">
+        <Loader size="sm" />
+        <Text size="sm" c="dimmed">
+          Generating a high-fidelity preview…
+        </Text>
+      </Group>
+    );
+  }
+
+  if (!forceNative && phase === "pdf" && pdfUrl) {
+    return (
+      <div>
+        <Group justify="flex-end" px="xs" py={6}>
+          <Button size="compact-xs" variant="subtle" onClick={() => setForceNative(true)}>
+            Switch to in-browser view
+          </Button>
+        </Group>
+        <iframe
+          src={pdfUrl}
+          title="Protocol PDF"
+          style={{ width: "100%", height: "78vh", border: "none", display: "block" }}
+        />
+      </div>
+    );
+  }
+
+  return <DocxNativeViewer id={id} />;
 }
 
 function ProtocolBody({ p }: { p: Protocol }) {

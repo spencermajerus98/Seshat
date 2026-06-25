@@ -113,6 +113,81 @@ def test_serve_docx_raw_bytes(client, tmp_path):
     assert r.content.startswith(b"PK")  # .docx is a zip archive
 
 
+def _commit_docx(client, tmp_path, name="pdf.docx", title="PDF Me"):
+    p = tmp_path / name
+    _make_docx(str(p))
+    with open(p, "rb") as fh:
+        up = client.post(
+            "/api/files/upload",
+            files={"file": (name, fh, "application/octet-stream")},
+        )
+    return client.post(
+        "/api/files/protocol/commit", json={"path": up.json()["path"], "title": title}
+    ).json()["id"]
+
+
+def test_pdf_endpoint_converts_and_caches(client, tmp_path, monkeypatch):
+    """DOCX→PDF is converted on first view and cached; the second view reuses it."""
+    from core import docx_pdf
+
+    pid = _commit_docx(client, tmp_path)
+
+    calls = {"n": 0}
+
+    def fake_convert(data):
+        calls["n"] += 1
+        return b"%PDF-1.4 fake-pdf-bytes"
+
+    monkeypatch.setattr(docx_pdf, "converter_available", lambda: True)
+    monkeypatch.setattr(docx_pdf, "convert_docx_to_pdf", fake_convert)
+
+    r1 = client.get(f"/api/protocols/{pid}/file.pdf")
+    assert r1.status_code == 200
+    assert r1.headers["content-type"] == "application/pdf"
+    assert r1.content == b"%PDF-1.4 fake-pdf-bytes"
+    assert calls["n"] == 1
+
+    # Second request is served from the cached pdf_render — no re-conversion.
+    r2 = client.get(f"/api/protocols/{pid}/file.pdf")
+    assert r2.status_code == 200
+    assert r2.content == b"%PDF-1.4 fake-pdf-bytes"
+    assert calls["n"] == 1
+
+
+def test_pdf_endpoint_503_without_converter(client, tmp_path, monkeypatch):
+    """When no converter is installed, the endpoint signals 503 so the UI falls back."""
+    from core import docx_pdf
+
+    pid = _commit_docx(client, tmp_path, name="noconv.docx")
+    monkeypatch.setattr(docx_pdf, "converter_available", lambda: False)
+
+    r = client.get(f"/api/protocols/{pid}/file.pdf")
+    assert r.status_code == 503
+
+
+def test_pdf_endpoint_passthrough_for_pdf_protocol(client, tmp_path):
+    """A protocol whose original file is already a PDF is served straight through."""
+    from pypdf import PdfWriter
+
+    p = tmp_path / "native.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+    with open(p, "wb") as fh:
+        writer.write(fh)
+    with open(p, "rb") as fh:
+        up = client.post(
+            "/api/files/upload", files={"file": ("native.pdf", fh, "application/pdf")}
+        )
+    pid = client.post(
+        "/api/files/protocol/commit", json={"path": up.json()["path"], "title": "Native PDF"}
+    ).json()["id"]
+
+    r = client.get(f"/api/protocols/{pid}/file.pdf")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.content.startswith(b"%PDF")
+
+
 def test_update_steps_replaces_all(client, tmp_path):
     p = tmp_path / "edit.docx"
     _make_docx(str(p))
