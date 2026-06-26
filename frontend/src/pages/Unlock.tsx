@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Button,
-  Card,
-  Center,
+  Group,
   PasswordInput,
   Stack,
   Text,
@@ -12,6 +11,28 @@ import {
 import { api, ApiError } from "../api";
 import { useAuth } from "../auth";
 import { notifyOk } from "../lib";
+import { LabBackground } from "../components/LabBackground";
+import classes from "../components/Unlock.module.css";
+
+const TAGLINES = [
+  "Where every experiment finds its memory.",
+  "Plan boldly. Record everything. Discover more.",
+  "Turn benchwork into a story worth keeping.",
+  "Your science — organized, private, encrypted.",
+];
+
+function RotatingTagline() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setI((n) => (n + 1) % TAGLINES.length), 4500);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <Text key={i} className={classes.tagline} c="dimmed" size="sm">
+      {TAGLINES[i]}
+    </Text>
+  );
+}
 
 export function Unlock() {
   const { status, refresh } = useAuth();
@@ -43,15 +64,22 @@ export function Unlock() {
   };
 
   return (
-    <Center h="100vh" bg="var(--mantine-color-gray-0)">
-      <Card shadow="md" radius="md" withBorder w={420} p="xl">
-        <Stack>
-          <div>
-            <Title order={2}>🪶 Seshat</Title>
-            <Text c="dimmed" size="sm">
-              Your local, private experiment planner & automatic lab notebook.
+    <div className={classes.hero}>
+      <LabBackground />
+      <div className={classes.vignette} />
+
+      <div className={classes.card}>
+        <Stack gap="lg">
+          <Stack gap={6} align="center" ta="center">
+            <span className={classes.brandIcon}>🪶</span>
+            <Title order={1} fw={800} style={{ letterSpacing: "-0.02em" }}>
+              Seshat
+            </Title>
+            <RotatingTagline />
+            <Text c="dimmed" size="xs">
+              Your local, private experiment planner &amp; automatic lab notebook.
             </Text>
-          </div>
+          </Stack>
 
           {status && !status.encryption && (
             <Alert color="red" variant="light">
@@ -59,8 +87,6 @@ export function Unlock() {
               rest. Install <code>sqlcipher3-wheels</code> (see README).
             </Alert>
           )}
-
-          <Title order={4}>{existing ? "Unlock your notebook" : "Create your notebook"}</Title>
 
           {!existing && (
             <Alert color="teal" variant="light">
@@ -71,7 +97,11 @@ export function Unlock() {
 
           <form onSubmit={submit}>
             <Stack>
+              <Title order={4} ta="center">
+                {existing ? "Unlock your notebook" : "Create your notebook"}
+              </Title>
               <PasswordInput
+                size="md"
                 label={existing ? "Enter your passphrase" : "Choose a passphrase"}
                 value={passphrase}
                 onChange={(e) => setPassphrase(e.currentTarget.value)}
@@ -79,6 +109,7 @@ export function Unlock() {
               />
               {!existing && (
                 <PasswordInput
+                  size="md"
                   label="Confirm passphrase"
                   value={confirm}
                   onChange={(e) => setConfirm(e.currentTarget.value)}
@@ -89,13 +120,19 @@ export function Unlock() {
                   {err}
                 </Text>
               )}
-              <Button type="submit" loading={busy} fullWidth>
-                Open notebook
+              <Button type="submit" size="md" loading={busy} fullWidth mt={4}>
+                {existing ? "Unlock" : "Create notebook"}
               </Button>
             </Stack>
           </form>
+
+          <Group justify="center" gap={6}>
+            <Text size="xs" c="dimmed">
+              {status?.encryption ? "🔐 Encrypted at rest (SQLCipher)" : "🔓 Local only"}
+            </Text>
+          </Group>
         </Stack>
-      </Card>
-    </Center>
+      </div>
+    </div>
   );
 }
